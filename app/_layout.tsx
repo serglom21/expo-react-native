@@ -1,16 +1,36 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, NavigationContainer, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { Stack, useNavigationContainerRef } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
+import * as Sentry from '@sentry/react-native';
+import { ThemedText } from '@/components/ThemedText';
+
+const routingInstrumentation = Sentry.reactNavigationIntegration({
+  enableTimeToInitialDisplay: true,
+})
+
+Sentry.init({
+  dsn: '{SENTRY_DSN}',
+  tracesSampleRate: 1.0,
+  debug: true,
+  integrations: [
+    Sentry.reactNativeTracingIntegration({
+      routingInstrumentation,
+    })
+  ]
+  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
+  // enableSpotlight: __DEV__,
+});
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
-export default function RootLayout() {
+function RootLayout() {
+  const ref = useNavigationContainerRef();
   const colorScheme = useColorScheme();
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
@@ -22,16 +42,22 @@ export default function RootLayout() {
     }
   }, [loaded]);
 
-  if (!loaded) {
-    return null;
-  }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
+    <NavigationContainer
+      ref={ref}
+      independent={true}
+      onReady={() => {
+        routingInstrumentation.registerNavigationContainer(ref)
+      }}
+    >
+       <Stack initialRouteName="Home">
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-    </ThemeProvider>
+       </Stack> 
+    </NavigationContainer>
+
+
   );
 }
+
+export default Sentry.wrap(RootLayout)
